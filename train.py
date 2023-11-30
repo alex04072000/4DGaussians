@@ -61,7 +61,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
     progress_bar = tqdm(range(first_iter, final_iter), desc="Training progress")
     first_iter += 1
     lpips_model = lpips.LPIPS(net="alex").cuda()
-    video_cams = scene.getVideoCameras()
+    video_cams = scene.getTestCameras()
     for iteration in range(first_iter, final_iter+1):        
         if network_gui.conn == None:
             network_gui.try_connect()
@@ -112,6 +112,14 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         visibility_filter_list = []
         viewspace_point_tensor_list = []
         for viewpoint_cam in viewpoint_cams:
+            # data audementation by random up/down sampling
+            # random sample a ratio
+            ratio = random.uniform(0.5, 1.5)
+            viewpoint_cam.image_width = int(viewpoint_cam.image_width * ratio)
+            viewpoint_cam.image_height = int(viewpoint_cam.image_height * ratio)
+            # resize the GT image
+            viewpoint_cam.original_image = torch.nn.functional.interpolate(viewpoint_cam.original_image[None], size=(viewpoint_cam.image_height, viewpoint_cam.image_width), mode='bicubic', align_corners=True)[0]
+
             render_pkg = render(viewpoint_cam, gaussians, pipe, background, stage=stage)
             image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
             images.append(image.unsqueeze(0))
@@ -194,10 +202,12 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                     densify_threshold = opt.densify_grad_threshold_fine_init - iteration*(opt.densify_grad_threshold_fine_init - opt.densify_grad_threshold_after)/(opt.densify_until_iter )  
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0 :
+                    print("densify")
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
                     
                     gaussians.densify(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold)
                 if iteration > opt.pruning_from_iter and iteration % opt.pruning_interval == 0:
+                    print("prune")
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
 
                     gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold)

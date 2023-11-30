@@ -231,7 +231,8 @@ def generateCamerasFromTransforms(path, template_transformsfile, extension, maxt
         image_name = Path(cam_name).stem
         image = Image.open(image_path)
         im_data = np.array(image.convert("RGBA"))
-        image = PILtoTorch(image,(800,800))
+        image = PILtoTorch(image,(854,480))
+        # image = PILtoTorch(image,(1708,960))
         break
     # format information
     for idx, (time, poses) in enumerate(zip(render_times,render_poses)):
@@ -240,6 +241,7 @@ def generateCamerasFromTransforms(path, template_transformsfile, extension, maxt
         R = -np.transpose(matrix[:3,:3])
         R[:,0] = -R[:,0]
         T = -matrix[:3, 3]
+        # fovx /= 1.01
         fovy = focal2fov(fov2focal(fovx, image.shape[1]), image.shape[2])
         FovY = fovy 
         FovX = fovx
@@ -274,7 +276,9 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             norm_data = im_data / 255.0
             arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
             image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
-            image = PILtoTorch(image,(800,800))
+            image = PILtoTorch(image,(854,480))
+            # image = PILtoTorch(image,(1708,960))
+            # fovx /= 1.01
             fovy = focal2fov(fov2focal(fovx, image.shape[1]), image.shape[2])
             FovY = fovy 
             FovX = fovx
@@ -300,7 +304,7 @@ def read_timeline(path):
         timestamp_mapper[time] = time/max_time_float
 
     return timestamp_mapper, max_time_float
-def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
+def readNerfSyntheticInfo(path, white_background, eval, extension=".jpg"):
     timestamp_mapper, max_time = read_timeline(path)
     print("Reading Training Transforms")
     train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension, timestamp_mapper)
